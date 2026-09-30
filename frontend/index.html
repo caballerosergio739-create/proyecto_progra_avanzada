@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Tracker Bot Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gray: {
+                            850: '#1f2937',
+                            900: '#111827',
+                            950: '#030712'
+                        },
+                        telegram: '#2AABEE'
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body class="bg-gray-950 text-gray-200 min-h-screen font-sans antialiased selection:bg-telegram selection:text-white">
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="flex items-center justify-between mb-10 pb-6 border-b border-gray-800">
+            <div class="flex items-center gap-3">
+                <i class="ph-fill ph-paper-plane-tilt text-telegram text-4xl"></i>
+                <h1 class="text-2xl font-bold tracking-tight text-white">Telegram Tracker</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <button id="forceCheckBtn" class="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-sm font-medium py-2 px-4 rounded-lg transition-colors border border-gray-700">
+                    <i class="ph ph-arrows-clockwise"></i>
+                    Probar Actualización
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Columna Izquierda: Monitoreo -->
+            <div class="lg:col-span-2 space-y-6">
+                
+                <!-- Añadir URL -->
+                <section class="bg-gray-900 rounded-xl p-6 border border-gray-800 shadow-lg">
+                    <h2 class="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+                        <i class="ph ph-plus-circle text-telegram"></i>
+                        Añadir Nuevo Rastreador
+                    </h2>
+                    <form id="addUrlForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="block text-xs font-medium text-gray-400 mb-1">Nombre Descriptivo</label>
+                            <input type="text" id="urlName" required placeholder="Ej: Precio RTX 4070 Amazon" class="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:border-telegram focus:ring-1 focus:ring-telegram transition-all text-sm">
+                        </div>
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="block text-xs font-medium text-gray-400 mb-1">URL a Monitorear</label>
+                            <input type="url" id="urlLink" required placeholder="https://..." class="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:border-telegram focus:ring-1 focus:ring-telegram transition-all text-sm">
+                        </div>
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="block text-xs font-medium text-gray-400 mb-1">Selector CSS (Elemento a extraer)</label>
+                            <input type="text" id="cssSelector" required placeholder="Ej: .price-large o #priceblock_ourprice" class="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:border-telegram focus:ring-1 focus:ring-telegram transition-all text-sm font-mono">
+                        </div>
+                        <div class="col-span-1 md:col-span-2 flex justify-end mt-2">
+                            <button type="submit" class="bg-telegram hover:bg-blue-500 text-white font-medium py-2 px-6 rounded-lg transition-colors flex items-center gap-2 text-sm shadow-[0_0_15px_rgba(42,171,238,0.2)]">
+                                <i class="ph ph-floppy-disk"></i>
+                                Guardar Rastreador
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- Lista de URLs -->
+                <section>
+                    <h2 class="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+                        <i class="ph ph-list-magnifying-glass text-telegram"></i>
+                        Elementos Monitoreados
+                    </h2>
+                    <div id="urlsList" class="grid grid-cols-1 gap-4">
+                        <!-- Las tarjetas se insertan aquí vía JS -->
+                        <div class="text-center py-10 text-gray-500 border border-dashed border-gray-800 rounded-xl">
+                            Cargando datos...
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Columna Derecha: Configuración y Logs -->
+            <div class="space-y-6">
+                <!-- Config Telegram -->
+                <section class="bg-gray-900 rounded-xl p-6 border border-gray-800 shadow-lg">
+                    <h2 class="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+                        <i class="ph ph-gear text-telegram"></i>
+                        Configuración Bot
+                    </h2>
+                    <form id="configForm" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">Bot Token (BotFather)</label>
+                            <input type="password" id="telegramToken" placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11" class="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:border-telegram focus:ring-1 focus:ring-telegram transition-all text-sm font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">Chat ID</label>
+                            <input type="text" id="telegramChatId" placeholder="123456789" class="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:border-telegram focus:ring-1 focus:ring-telegram transition-all text-sm font-mono">
+                        </div>
+                        <div class="flex flex-col gap-2 pt-2">
+                            <button type="submit" class="w-full bg-gray-800 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition-colors border border-gray-700 text-sm">
+                                Guardar Configuración
+                            </button>
+                            <button type="button" id="testMsgBtn" class="w-full bg-transparent border border-telegram text-telegram hover:bg-telegram hover:text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm">
+                                Enviar Mensaje de Prueba
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- Logs -->
+                <section class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg flex flex-col h-[400px]">
+                    <div class="p-4 border-b border-gray-800">
+                        <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+                            <i class="ph ph-terminal-window text-telegram"></i>
+                            Historial de Notificaciones
+                        </h2>
+                    </div>
+                    <div id="logsList" class="p-4 overflow-y-auto flex-1 space-y-3 text-xs font-mono custom-scrollbar">
+                        <!-- Logs vía JS -->
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 transform translate-y-20 opacity-0 transition-all duration-300 bg-gray-800 border border-gray-700 text-white px-6 py-3 rounded-lg shadow-2xl flex items-center gap-3 z-50">
+        <i id="toastIcon" class="ph-fill ph-check-circle text-green-400 text-xl"></i>
+        <span id="toastMsg" class="text-sm font-medium">Acción completada</span>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
