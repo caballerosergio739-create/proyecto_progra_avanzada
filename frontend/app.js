@@ -11,6 +11,48 @@ const toast = document.getElementById('toast');
 const toastMsg = document.getElementById('toastMsg');
 const toastIcon = document.getElementById('toastIcon');
 
+// ----- SESIÓN DE USUARIO -----
+function initUserSession() {
+    const userRaw = localStorage.getItem('user');
+    const authLinks = document.getElementById('authLinks');
+    const userBubble = document.getElementById('userBubble');
+
+    if (userRaw) {
+        const user = JSON.parse(userRaw);
+        // Mostrar burbuja, ocultar links
+        authLinks.classList.add('hidden');
+        userBubble.classList.remove('hidden');
+        // Iniciales del avatar
+        document.getElementById('userAvatar').textContent = user.name.charAt(0).toUpperCase();
+        document.getElementById('userName').textContent = user.name;
+        document.getElementById('dropdownName').textContent = user.name;
+        document.getElementById('dropdownEmail').textContent = user.email;
+    } else {
+        authLinks.classList.remove('hidden');
+        userBubble.classList.add('hidden');
+    }
+}
+
+// Toggle del dropdown de usuario
+document.getElementById('userMenuBtn')?.addEventListener('click', () => {
+    document.getElementById('userDropdown').classList.toggle('hidden');
+});
+
+// Cerrar dropdown al hacer clic fuera
+document.addEventListener('click', (e) => {
+    const bubble = document.getElementById('userBubble');
+    if (bubble && !bubble.contains(e.target)) {
+        document.getElementById('userDropdown').classList.add('hidden');
+    }
+});
+
+// Cerrar sesión
+window.logout = () => {
+    localStorage.removeItem('user');
+    window.location.href = 'login.html';
+};
+
+
 // Utilidad para mostrar notificaciones Toast
 function showToast(message, type = 'success') {
     toastMsg.textContent = message;
@@ -232,13 +274,14 @@ forceCheckBtn.addEventListener('click', async () => {
 
 // Inicialización
 document.addEventListener('DOMContentLoaded', () => {
+    initUserSession();
     loadConfig();
     loadURLs();
     loadLogs();
     
-    // Auto-refresh cada 30 segundos
+    // Auto-refresh cada 5 segundos para tiempo real
     setInterval(() => {
         loadURLs();
         loadLogs();
-    }, 30000);
+    }, 5000);
 });

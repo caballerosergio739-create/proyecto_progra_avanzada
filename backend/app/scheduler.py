@@ -68,16 +68,16 @@ def check_urls():
 def start_scheduler():
     """Inicia el planificador en segundo plano."""
     if not scheduler.running:
-        # Ejecutar cada 15 minutos (900 segundos)
+        # Ejecutar cada 1 minuto para mayor sensación de tiempo real
         scheduler.add_job(
             check_urls,
-            trigger=IntervalTrigger(minutes=15),
+            trigger=IntervalTrigger(minutes=1),
             id='check_urls_job',
             name='Chequeo periódico de URLs',
             replace_existing=True
         )
         scheduler.start()
-        print("Scheduler iniciado. Revisará cada 15 minutos.")
+        print("Scheduler iniciado. Revisará cada 1 minuto.")
 
 def shutdown_scheduler():
     """Detiene el planificador."""

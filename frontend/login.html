@@ -8,32 +8,27 @@
     <script>
         tailwind.config = {
             darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        gray: {
-                            850: '#1f2937',
-                            900: '#111827',
-                            950: '#030712'
-                        },
-                        telegram: '#2AABEE'
-                    }
-                }
-            }
+            theme: { extend: { colors: { gray: { 850: '#1f2937', 900: '#111827', 950: '#030712' }, telegram: '#2AABEE' } } }
         }
     </script>
     <link rel="stylesheet" href="styles.css">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
 <body class="bg-gray-950 text-gray-200 min-h-screen font-sans antialiased flex flex-col items-center justify-center p-4">
-    
+
     <div class="w-full max-w-md bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl p-8">
         <div class="flex justify-center mb-6">
             <i class="ph-fill ph-paper-plane-tilt text-telegram text-5xl"></i>
         </div>
         <h2 class="text-2xl font-bold text-center text-white mb-2">Bienvenido de nuevo</h2>
         <p class="text-sm text-gray-400 text-center mb-8">Ingresa tus credenciales para acceder al panel.</p>
-        
+
+        <!-- Mensaje de error -->
+        <div id="errorMsg" class="hidden bg-red-900/40 border border-red-700 text-red-300 text-sm rounded-lg px-4 py-3 mb-4 flex items-center gap-2">
+            <i class="ph ph-warning-circle"></i>
+            <span id="errorText"></span>
+        </div>
+
         <form id="loginForm" class="space-y-5">
             <div>
                 <label class="block text-sm font-medium text-gray-400 mb-1">Correo Electrónico</label>
@@ -41,43 +36,78 @@
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i class="ph ph-envelope-simple text-gray-500"></i>
                     </div>
-                    <input type="email" required placeholder="tu@correo.com" class="w-full bg-gray-950 border border-gray-800 rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:border-telegram focus:ring-1 focus:ring-telegram transition-all text-sm">
+                    <input type="email" id="email" required placeholder="tu@correo.com"
+                        class="w-full bg-gray-950 border border-gray-800 rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:border-telegram focus:ring-1 focus:ring-telegram transition-all text-sm">
                 </div>
             </div>
-            
             <div>
                 <div class="flex justify-between items-center mb-1">
                     <label class="block text-sm font-medium text-gray-400">Contraseña</label>
-                    <a href="#" class="text-xs text-telegram hover:underline">¿Olvidaste tu contraseña?</a>
                 </div>
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i class="ph ph-lock-key text-gray-500"></i>
                     </div>
-                    <input type="password" required placeholder="••••••••" class="w-full bg-gray-950 border border-gray-800 rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:border-telegram focus:ring-1 focus:ring-telegram transition-all text-sm">
+                    <input type="password" id="password" required placeholder="••••••••"
+                        class="w-full bg-gray-950 border border-gray-800 rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:border-telegram focus:ring-1 focus:ring-telegram transition-all text-sm">
                 </div>
             </div>
-            
-            <button type="submit" class="w-full bg-telegram hover:bg-blue-500 text-white font-semibold py-2.5 rounded-lg transition-colors shadow-[0_0_15px_rgba(42,171,238,0.2)] mt-4">
+            <button type="submit" id="submitBtn" class="w-full bg-telegram hover:bg-blue-500 text-white font-semibold py-2.5 rounded-lg transition-colors shadow-[0_0_15px_rgba(42,171,238,0.2)] mt-4 flex items-center justify-center gap-2">
+                <i class="ph ph-sign-in"></i>
                 Iniciar Sesión
             </button>
         </form>
-        
+
         <p class="mt-8 text-center text-sm text-gray-400">
             ¿No tienes cuenta? <a href="register.html" class="text-telegram font-medium hover:underline">Crear una cuenta</a>
         </p>
     </div>
 
-    <!-- Volver -->
     <a href="index.html" class="mt-8 flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors">
         <i class="ph ph-arrow-left"></i> Volver al inicio
     </a>
 
     <script>
-        document.getElementById('loginForm').addEventListener('submit', (e) => {
+        // Si ya hay sesión, redirigir al dashboard
+        if (localStorage.getItem('user')) window.location.href = 'index.html';
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            // Simular inicio de sesión exitoso y redirigir
-            window.location.href = 'index.html';
+            const btn = document.getElementById('submitBtn');
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Ingresando...';
+            btn.disabled = true;
+
+            const errorMsg = document.getElementById('errorMsg');
+            const errorText = document.getElementById('errorText');
+            errorMsg.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: document.getElementById('email').value,
+                        password: document.getElementById('password').value
+                    })
+                });
+
+                if (res.ok) {
+                    const user = await res.json();
+                    localStorage.setItem('user', JSON.stringify(user));
+                    window.location.href = 'index.html';
+                } else {
+                    const err = await res.json();
+                    errorText.textContent = err.detail || 'Error al iniciar sesión';
+                    errorMsg.classList.remove('hidden');
+                    btn.innerHTML = '<i class="ph ph-sign-in"></i> Iniciar Sesión';
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                errorText.textContent = 'Error de conexión con el servidor';
+                errorMsg.classList.remove('hidden');
+                btn.innerHTML = '<i class="ph ph-sign-in"></i> Iniciar Sesión';
+                btn.disabled = false;
+            }
         });
     </script>
 </body>

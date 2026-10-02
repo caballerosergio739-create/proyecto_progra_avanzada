@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime
 from sqlalchemy.orm import declarative_base, sessionmaker
+import hashlib
 
 # Directorio de la base de datos (relativo al archivo actual)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -23,6 +24,22 @@ class Config(Base):
     id = Column(Integer, primary_key=True, index=True)
     telegram_token = Column(String, nullable=True)
     telegram_chat_id = Column(String, nullable=True)
+
+class User(Base):
+    """Almacena los usuarios registrados"""
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    email = Column(String, unique=True, nullable=False, index=True)
+    password_hash = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def set_password(self, password: str):
+        self.password_hash = hashlib.sha256(password.encode()).hexdigest()
+
+    def check_password(self, password: str) -> bool:
+        return self.password_hash == hashlib.sha256(password.encode()).hexdigest()
 
 class TrackedURL(Base):
     """Almacena las URLs a monitorear"""

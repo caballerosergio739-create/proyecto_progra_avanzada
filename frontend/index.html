@@ -32,12 +32,40 @@
         <header class="flex items-center justify-between mb-10 pb-6 border-b border-gray-800">
             <div class="flex items-center gap-3">
                 <i class="ph-fill ph-paper-plane-tilt text-telegram text-4xl"></i>
-                <h1 class="text-2xl font-bold tracking-tight text-white">Telegram Tracker</h1>
+                <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-3">
+                    Telegram Tracker
+                    <span class="flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider text-green-400 bg-green-400/10 border border-green-400/20 px-2 py-0.5 rounded-full">
+                        <span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
+                        En Vivo
+                    </span>
+                </h1>
             </div>
             <div class="flex items-center gap-4">
-                <a href="login.html" class="text-sm font-medium text-gray-300 hover:text-white transition-colors">Iniciar Sesión</a>
-                <a href="register.html" class="bg-telegram hover:bg-blue-500 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors shadow-[0_0_15px_rgba(42,171,238,0.2)]">Crear Cuenta</a>
-                
+                <!-- Mostrado si NO hay sesión -->
+                <div id="authLinks" class="flex items-center gap-3">
+                    <a href="login.html" class="text-sm font-medium text-gray-300 hover:text-white transition-colors">Iniciar Sesión</a>
+                    <a href="register.html" class="bg-telegram hover:bg-blue-500 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors shadow-[0_0_15px_rgba(42,171,238,0.2)]">Crear Cuenta</a>
+                </div>
+                <!-- Mostrado si HAY sesión -->
+                <div id="userBubble" class="hidden relative">
+                    <button id="userMenuBtn" class="flex items-center gap-2 bg-gray-800 border border-gray-700 hover:border-telegram px-3 py-1.5 rounded-full transition-all group">
+                        <div class="w-7 h-7 rounded-full bg-telegram flex items-center justify-center text-white text-xs font-bold" id="userAvatar">?</div>
+                        <span id="userName" class="text-sm font-medium text-white max-w-[100px] truncate"></span>
+                        <i class="ph ph-caret-down text-gray-400 text-xs group-hover:text-white transition-colors"></i>
+                    </button>
+                    <!-- Dropdown -->
+                    <div id="userDropdown" class="hidden absolute right-0 top-full mt-2 w-44 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+                        <div class="px-4 py-3 border-b border-gray-800">
+                            <p id="dropdownName" class="text-xs font-semibold text-white truncate"></p>
+                            <p id="dropdownEmail" class="text-[10px] text-gray-400 truncate mt-0.5"></p>
+                        </div>
+                        <button onclick="logout()" class="w-full flex items-center gap-2 px-4 py-3 text-sm text-red-400 hover:bg-red-900/20 transition-colors">
+                            <i class="ph ph-sign-out"></i>
+                            Cerrar Sesión
+                        </button>
+                    </div>
+                </div>
+
                 <button id="forceCheckBtn" class="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-sm font-medium py-2 px-4 rounded-lg transition-colors border border-gray-700 ml-2">
                     <i class="ph ph-arrows-clockwise"></i>
                     Probar Actualización

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, HttpUrl
 from typing import List, Optional
 
-from .database import get_db, TrackedURL, Config, Log
+from .database import get_db, TrackedURL, Config, Log, User
 from .scheduler import start_scheduler, shutdown_scheduler, check_urls
 from .telegram import send_telegram_message
 
@@ -48,7 +48,7 @@ class URLResponse(BaseModel):
     error_state: bool
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ConfigUpdate(BaseModel):
     telegram_token: str
@@ -61,7 +61,37 @@ class LogResponse(BaseModel):
     status: str
     
     class Config:
-        orm_mode = True
+        from_attributes = True
+
+class UserRegister(BaseModel):
+    name: str
+    email: str
+    password: str
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+# ----- AUTH ENDPOINTS -----
+
+@app.post("/api/register")
+def register(user_in: UserRegister, db: Session = Depends(get_db)):
+    existing = db.query(User).filter(User.email == user_in.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="El correo ya está registrado")
+    new_user = User(name=user_in.name, email=user_in.email)
+    new_user.set_password(user_in.password)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return {"id": new_user.id, "name": new_user.name, "email": new_user.email}
+
+@app.post("/api/login")
+def login(user_in: UserLogin, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == user_in.email).first()
+    if not user or not user.check_password(user_in.password):
+        raise HTTPException(status_code=401, detail="Correo o contraseña incorrectos")
+    return {"id": user.id, "name": user.name, "email": user.email}
 
 # ----- ENDPOINTS -----
 
