@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crear Cuenta - Telegram Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gray: {
+                            850: '#1f2937',
+                            900: '#111827',
+                            950: '#030712'
+                        },
+                        telegram: '#2AABEE'
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body class="bg-gray-950 text-gray-200 min-h-screen font-sans antialiased flex flex-col items-center justify-center p-4">
+    
+    <div class="w-full max-w-md bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl p-8">
+        <div class="flex justify-center mb-6">
+            <i class="ph-fill ph-paper-plane-tilt text-telegram text-5xl"></i>
+        </div>
+        <h2 class="text-2xl font-bold text-center text-white mb-2">Crea tu cuenta</h2>
+        <p class="text-sm text-gray-400 text-center mb-8">Únete para empezar a monitorear tus páginas favoritas.</p>
+        
+        <form id="registerForm" class="space-y-5">
+            <div>
+                <label class="block text-sm font-medium text-gray-400 mb-1">Nombre Completo</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="ph ph-user text-gray-500"></i>
+                    </div>
+                    <input type="text" required placeholder="Tu Nombre" class="w-full bg-gray-950 border border-gray-800 rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:border-telegram focus:ring-1 focus:ring-telegram transition-all text-sm">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-400 mb-1">Correo Electrónico</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="ph ph-envelope-simple text-gray-500"></i>
+                    </div>
+                    <input type="email" required placeholder="tu@correo.com" class="w-full bg-gray-950 border border-gray-800 rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:border-telegram focus:ring-1 focus:ring-telegram transition-all text-sm">
+                </div>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-400 mb-1">Contraseña</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="ph ph-lock-key text-gray-500"></i>
+                    </div>
+                    <input type="password" required placeholder="••••••••" minlength="6" class="w-full bg-gray-950 border border-gray-800 rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:border-telegram focus:ring-1 focus:ring-telegram transition-all text-sm">
+                </div>
+            </div>
+            
+            <button type="submit" class="w-full bg-telegram hover:bg-blue-500 text-white font-semibold py-2.5 rounded-lg transition-colors shadow-[0_0_15px_rgba(42,171,238,0.2)] mt-4">
+                Crear Cuenta
+            </button>
+        </form>
+        
+        <p class="mt-8 text-center text-sm text-gray-400">
+            ¿Ya tienes cuenta? <a href="login.html" class="text-telegram font-medium hover:underline">Iniciar Sesión</a>
+        </p>
+    </div>
+
+    <!-- Volver -->
+    <a href="index.html" class="mt-8 flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors">
+        <i class="ph ph-arrow-left"></i> Volver al inicio
+    </a>
+
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            // Simular registro exitoso y redirigir
+            alert('¡Cuenta creada exitosamente! Iniciando sesión...');
+            window.location.href = 'index.html';
+        });
+    </script>
+</body>
+</html>
