@@ -120,6 +120,37 @@
                     </form>
                 </section>
 
+                <!-- Ayuda de Selectores CSS -->
+                <section class="bg-gray-900 rounded-xl p-6 border border-gray-800 shadow-lg">
+                    <h2 class="text-sm font-semibold text-white flex items-center gap-2 mb-4">
+                        <i class="ph ph-code text-telegram"></i>
+                        Guía Rápida: Selectores CSS
+                    </h2>
+                    <ul class="space-y-2 text-xs text-gray-400">
+                        <li class="flex justify-between items-center bg-gray-950 p-2 rounded-lg border border-gray-800 hover:border-gray-700 transition-colors">
+                            <span>Cualquier ID:</span>
+                            <code class="text-telegram font-mono cursor-pointer hover:text-white bg-gray-900 px-2 py-1 rounded" onclick="document.getElementById('cssSelector').value='#id-del-elemento'; showToast('Selector pegado en el formulario'); document.getElementById('cssSelector').focus();">#id-del-elemento</code>
+                        </li>
+                        <li class="flex justify-between items-center bg-gray-950 p-2 rounded-lg border border-gray-800 hover:border-gray-700 transition-colors">
+                            <span>Cualquier Clase:</span>
+                            <code class="text-telegram font-mono cursor-pointer hover:text-white bg-gray-900 px-2 py-1 rounded" onclick="document.getElementById('cssSelector').value='.clase-del-elemento'; showToast('Selector pegado en el formulario'); document.getElementById('cssSelector').focus();">.clase-del-elemento</code>
+                        </li>
+                        <li class="flex justify-between items-center bg-gray-950 p-2 rounded-lg border border-gray-800 hover:border-gray-700 transition-colors">
+                            <span>Amazon (Precio):</span>
+                            <code class="text-telegram font-mono cursor-pointer hover:text-white bg-gray-900 px-2 py-1 rounded" onclick="document.getElementById('cssSelector').value='.a-price-whole'; showToast('Selector pegado en el formulario'); document.getElementById('cssSelector').focus();">.a-price-whole</code>
+                        </li>
+                        <li class="flex justify-between items-center bg-gray-950 p-2 rounded-lg border border-gray-800 hover:border-gray-700 transition-colors">
+                            <span>MercadoLibre (Precio):</span>
+                            <code class="text-telegram font-mono cursor-pointer hover:text-white bg-gray-900 px-2 py-1 rounded" onclick="document.getElementById('cssSelector').value='.andes-money-amount__fraction'; showToast('Selector pegado en el formulario'); document.getElementById('cssSelector').focus();">.andes-money-amount__fraction</code>
+                        </li>
+                        <li class="flex justify-between items-center bg-gray-950 p-2 rounded-lg border border-gray-800 hover:border-gray-700 transition-colors">
+                            <span>Steam (Precio):</span>
+                            <code class="text-telegram font-mono cursor-pointer hover:text-white bg-gray-900 px-2 py-1 rounded" onclick="document.getElementById('cssSelector').value='.game_purchase_price'; showToast('Selector pegado en el formulario'); document.getElementById('cssSelector').focus();">.game_purchase_price</code>
+                        </li>
+                    </ul>
+                    <p class="text-[10px] text-gray-500 mt-3 text-center"><i class="ph ph-mouse"></i> Haz clic en el código rojo para autocompletar</p>
+                </section>
+
                 <!-- Logs -->
                 <section class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg flex flex-col h-[400px]">
                     <div class="p-4 border-b border-gray-800">
