@@ -76,7 +76,11 @@ document.addEventListener('click', (e) => {
 // Cerrar sesión
 window.logout = () => {
     localStorage.removeItem('user');
-    window.location.href = 'login.html';
+    const tokenInput = document.getElementById('telegramToken');
+    const chatInput = document.getElementById('telegramChatId');
+    if (tokenInput) tokenInput.value = '';
+    if (chatInput) chatInput.value = '';
+    window.location.href = 'index.html';
 };
 
 // Utilidad para mostrar notificaciones Toast
@@ -102,7 +106,7 @@ function showToast(message, type = 'success') {
 // Cargar Configuración de Telegram
 async function loadConfig() {
     try {
-        const res = await fetch(`${API_BASE}/config`);
+        const res = await fetch(`${API_BASE}/config`, { headers: getAuthHeaders() });
         const data = await res.json();
         document.getElementById('telegramToken').value = data.telegram_token || '';
         document.getElementById('telegramChatId').value = data.telegram_chat_id || '';
@@ -114,13 +118,13 @@ async function loadConfig() {
 // Guardar Configuración
 configForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const token = document.getElementById('telegramToken').value;
-    const chatId = document.getElementById('telegramChatId').value;
+    const token = document.getElementById('telegramToken').value.trim();
+    const chatId = document.getElementById('telegramChatId').value.trim();
     
     try {
         const res = await fetch(`${API_BASE}/config`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ telegram_token: token, telegram_chat_id: chatId })
         });
         if (res.ok) showToast("Configuración guardada correctamente");

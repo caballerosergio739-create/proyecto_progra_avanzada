@@ -16,12 +16,6 @@ def check_urls():
     """
     db = SessionLocal()
     try:
-        # Obtener configuración de Telegram
-        config = db.query(Config).first()
-        if not config or not config.telegram_token or not config.telegram_chat_id:
-            print("Scheduler: Configuración de Telegram incompleta. Saltando chequeo.")
-            return
-
         urls_to_check = db.query(TrackedURL).filter(TrackedURL.is_active == True).all()
         
         for item in urls_to_check:
@@ -42,6 +36,16 @@ def check_urls():
                 old_value = item.last_value
                 item.last_value = scraped_value
                 db.commit()
+                
+                # Buscar configuración de Telegram del usuario de este rastreador
+                if item.user_id is not None:
+                    config = db.query(Config).filter(Config.user_id == item.user_id).first()
+                else:
+                    config = db.query(Config).filter(Config.user_id == None).first()
+                    
+                if not config or not config.telegram_token or not config.telegram_chat_id:
+                    print(f"Scheduler: Configuración de Telegram incompleta para {item.name}. No se envió mensaje.")
+                    continue
                 
                 # Enviar notificación
                 message = f"🔔 *Alerta de Cambio: {item.name}*\n\n"

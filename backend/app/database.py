@@ -18,10 +18,11 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 class Config(Base):
-    """Almacena la configuración global (Token, Chat ID)"""
+    """Almacena la configuración de Telegram (Token, Chat ID) por usuario"""
     __tablename__ = "config"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=True, unique=True, index=True)
     telegram_token = Column(String, nullable=True)
     telegram_chat_id = Column(String, nullable=True)
 

@@ -26,7 +26,14 @@ try:
 except sqlite3.OperationalError:
     print("[INFO] Columna user_id ya existe en logs")
 
-# 3. Buscar el usuario con el correo objetivo
+# 3. Anadir columna user_id a config si no existe
+try:
+    cur.execute("ALTER TABLE config ADD COLUMN user_id INTEGER")
+    print("[OK] Columna user_id anadida a config")
+except sqlite3.OperationalError:
+    print("[INFO] Columna user_id ya existe en config")
+
+# 4. Buscar el usuario con el correo objetivo
 cur.execute("SELECT id FROM users WHERE email = ?", (TARGET_EMAIL,))
 row = cur.fetchone()
 
@@ -34,6 +41,7 @@ if row:
     user_id = row[0]
     cur.execute("UPDATE tracked_urls SET user_id = ? WHERE user_id IS NULL", (user_id,))
     cur.execute("UPDATE logs SET user_id = ? WHERE user_id IS NULL", (user_id,))
+    cur.execute("UPDATE config SET user_id = ? WHERE user_id IS NULL", (user_id,))
     conn.commit()
     print(f"[OK] Registros existentes asignados al usuario ID={user_id} ({TARGET_EMAIL})")
 else:

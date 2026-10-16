@@ -187,29 +187,44 @@ def toggle_url(url_id: int, user_id: Optional[int] = Depends(get_user_id), db: S
 # ----- CONFIG -----
 
 @app.get("/api/config")
-def get_config(db: Session = Depends(get_db)):
-    config = db.query(Config).first()
+def get_config(user_id: Optional[int] = Depends(get_user_id), db: Session = Depends(get_db)):
+    if user_id is not None:
+        config = db.query(Config).filter(Config.user_id == user_id).first()
+    else:
+        config = db.query(Config).filter(Config.user_id == None).first()
     if not config:
         return {"telegram_token": "", "telegram_chat_id": ""}
-    return {"telegram_token": config.telegram_token, "telegram_chat_id": config.telegram_chat_id}
+    return {"telegram_token": config.telegram_token or "", "telegram_chat_id": config.telegram_chat_id or ""}
 
 @app.post("/api/config")
-def update_config(config_in: ConfigUpdate, db: Session = Depends(get_db)):
-    config = db.query(Config).first()
+def update_config(config_in: ConfigUpdate, user_id: Optional[int] = Depends(get_user_id), db: Session = Depends(get_db)):
+    if user_id is not None:
+        config = db.query(Config).filter(Config.user_id == user_id).first()
+    else:
+        config = db.query(Config).filter(Config.user_id == None).first()
+
     if not config:
-        config = Config(telegram_token=config_in.telegram_token, telegram_chat_id=config_in.telegram_chat_id)
+        config = Config(
+            user_id=user_id,
+            telegram_token=config_in.telegram_token.strip(),
+            telegram_chat_id=config_in.telegram_chat_id.strip()
+        )
         db.add(config)
     else:
-        config.telegram_token = config_in.telegram_token
-        config.telegram_chat_id = config_in.telegram_chat_id
+        config.telegram_token = config_in.telegram_token.strip()
+        config.telegram_chat_id = config_in.telegram_chat_id.strip()
     db.commit()
     return {"message": "Configuracion guardada"}
 
 @app.post("/api/test-telegram")
 def test_telegram(user_id: Optional[int] = Depends(get_user_id), db: Session = Depends(get_db)):
-    config = db.query(Config).first()
+    if user_id is not None:
+        config = db.query(Config).filter(Config.user_id == user_id).first()
+    else:
+        config = db.query(Config).filter(Config.user_id == None).first()
+
     if not config or not config.telegram_token or not config.telegram_chat_id:
-        raise HTTPException(status_code=400, detail="Configuracion incompleta")
+        raise HTTPException(status_code=400, detail="Configuracion incompleta. Guarda el Token y Chat ID primero.")
     success = send_telegram_message(
         config.telegram_token,
         config.telegram_chat_id,
