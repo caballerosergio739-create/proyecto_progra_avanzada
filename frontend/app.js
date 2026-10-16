@@ -1,5 +1,26 @@
 const API_BASE = '/api';
 
+// Helper: obtener user_id del localStorage
+function getUserId() {
+    const userRaw = localStorage.getItem('user');
+    if (!userRaw) return null;
+    try {
+        return JSON.parse(userRaw).id;
+    } catch {
+        return null;
+    }
+}
+
+// Wrapper para headers con X-User-ID
+function getAuthHeaders(extraHeaders = {}) {
+    const headers = { ...extraHeaders };
+    const uid = getUserId();
+    if (uid) {
+        headers['X-User-ID'] = String(uid);
+    }
+    return headers;
+}
+
 // Elementos DOM
 const urlsList = document.getElementById('urlsList');
 const logsList = document.getElementById('logsList');
@@ -18,15 +39,21 @@ function initUserSession() {
     const userBubble = document.getElementById('userBubble');
 
     if (userRaw) {
-        const user = JSON.parse(userRaw);
-        // Mostrar burbuja, ocultar links
-        authLinks.classList.add('hidden');
-        userBubble.classList.remove('hidden');
-        // Iniciales del avatar
-        document.getElementById('userAvatar').textContent = user.name.charAt(0).toUpperCase();
-        document.getElementById('userName').textContent = user.name;
-        document.getElementById('dropdownName').textContent = user.name;
-        document.getElementById('dropdownEmail').textContent = user.email;
+        try {
+            const user = JSON.parse(userRaw);
+            // Mostrar burbuja, ocultar links
+            authLinks.classList.add('hidden');
+            userBubble.classList.remove('hidden');
+            // Iniciales del avatar
+            document.getElementById('userAvatar').textContent = user.name ? user.name.charAt(0).toUpperCase() : '?';
+            document.getElementById('userName').textContent = user.name || 'Usuario';
+            document.getElementById('dropdownName').textContent = user.name || 'Usuario';
+            document.getElementById('dropdownEmail').textContent = user.email || '';
+        } catch (e) {
+            localStorage.removeItem('user');
+            authLinks.classList.remove('hidden');
+            userBubble.classList.add('hidden');
+        }
     } else {
         authLinks.classList.remove('hidden');
         userBubble.classList.add('hidden');
@@ -42,7 +69,7 @@ document.getElementById('userMenuBtn')?.addEventListener('click', () => {
 document.addEventListener('click', (e) => {
     const bubble = document.getElementById('userBubble');
     if (bubble && !bubble.contains(e.target)) {
-        document.getElementById('userDropdown').classList.add('hidden');
+        document.getElementById('userDropdown')?.classList.add('hidden');
     }
 });
 
@@ -51,7 +78,6 @@ window.logout = () => {
     localStorage.removeItem('user');
     window.location.href = 'login.html';
 };
-
 
 // Utilidad para mostrar notificaciones Toast
 function showToast(message, type = 'success') {
@@ -107,7 +133,10 @@ configForm.addEventListener('submit', async (e) => {
 // Enviar Mensaje de Prueba
 testMsgBtn.addEventListener('click', async () => {
     try {
-        const res = await fetch(`${API_BASE}/test-telegram`, { method: 'POST' });
+        const res = await fetch(`${API_BASE}/test-telegram`, { 
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
         if (res.ok) {
             showToast("Mensaje de prueba enviado a Telegram");
             loadLogs(); // Actualizar logs
@@ -122,8 +151,18 @@ testMsgBtn.addEventListener('click', async () => {
 
 // Cargar URLs monitoreadas
 async function loadURLs() {
+    const uid = getUserId();
+    if (!uid) {
+        urlsList.innerHTML = `
+            <div class="text-center py-10 text-gray-500 border border-dashed border-gray-800 rounded-xl">
+                Inicia sesión para ver y registrar tus URLs monitoreadas.
+            </div>
+        `;
+        return;
+    }
+
     try {
-        const res = await fetch(`${API_BASE}/urls`);
+        const res = await fetch(`${API_BASE}/urls`, { headers: getAuthHeaders() });
         const urls = await res.json();
         
         if (urls.length === 0) {
@@ -178,6 +217,11 @@ async function loadURLs() {
 // Añadir URL
 addUrlForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!getUserId()) {
+        showToast("Debes iniciar sesión para añadir rastreadores", "error");
+        return;
+    }
+
     const payload = {
         name: document.getElementById('urlName').value,
         url: document.getElementById('urlLink').value,
@@ -187,13 +231,16 @@ addUrlForm.addEventListener('submit', async (e) => {
     try {
         const res = await fetch(`${API_BASE}/urls`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(payload)
         });
         if (res.ok) {
             showToast("URL añadida al monitoreo");
             addUrlForm.reset();
             loadURLs();
+        } else {
+            const err = await res.json();
+            showToast(err.detail || "Error al añadir URL", "error");
         }
     } catch (err) {
         showToast("Error al añadir URL", "error");
@@ -204,7 +251,10 @@ addUrlForm.addEventListener('submit', async (e) => {
 window.deleteUrl = async (id) => {
     if(!confirm("¿Seguro que deseas eliminar este rastreador?")) return;
     try {
-        const res = await fetch(`${API_BASE}/urls/${id}`, { method: 'DELETE' });
+        const res = await fetch(`${API_BASE}/urls/${id}`, { 
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        });
         if (res.ok) {
             showToast("Rastreador eliminado");
             loadURLs();
@@ -217,7 +267,10 @@ window.deleteUrl = async (id) => {
 // Pausar/Reanudar URL
 window.toggleUrl = async (id) => {
     try {
-        const res = await fetch(`${API_BASE}/urls/${id}/toggle`, { method: 'POST' });
+        const res = await fetch(`${API_BASE}/urls/${id}/toggle`, { 
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
         if (res.ok) loadURLs();
     } catch (err) {
         showToast("Error al cambiar estado", "error");
@@ -226,8 +279,14 @@ window.toggleUrl = async (id) => {
 
 // Cargar Logs
 async function loadLogs() {
+    const uid = getUserId();
+    if (!uid) {
+        logsList.innerHTML = `<div class="text-gray-500 text-center py-4">Inicia sesión para ver tu historial de notificaciones.</div>`;
+        return;
+    }
+
     try {
-        const res = await fetch(`${API_BASE}/logs`);
+        const res = await fetch(`${API_BASE}/logs`, { headers: getAuthHeaders() });
         const logs = await res.json();
         
         if (logs.length === 0) {

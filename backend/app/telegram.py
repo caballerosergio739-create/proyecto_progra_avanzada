@@ -3,7 +3,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from .database import Log
 
-def send_telegram_message(token: str, chat_id: str, text: str, db: Optional[Session] = None) -> bool:
+def send_telegram_message(token: str, chat_id: str, text: str, db: Optional[Session] = None, user_id: Optional[int] = None) -> bool:
     """
     Envía un mensaje de Telegram usando la API HTTP oficial.
     Si se provee una sesión de BD, registra el evento en los logs.
@@ -31,6 +31,6 @@ def send_telegram_message(token: str, chat_id: str, text: str, db: Optional[Sess
     finally:
         # Guardar log en BD
         if db:
-            log_entry = Log(message=text, status=status)
+            log_entry = Log(message=text, status=status, user_id=user_id)
             db.add(log_entry)
             db.commit()

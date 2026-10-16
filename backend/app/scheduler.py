@@ -54,7 +54,8 @@ def check_urls():
                     token=config.telegram_token,
                     chat_id=config.telegram_chat_id,
                     text=message,
-                    db=db
+                    db=db,
+                    user_id=item.user_id
                 )
             else:
                 db.commit()

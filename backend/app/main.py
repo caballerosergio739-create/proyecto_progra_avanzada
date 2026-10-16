@@ -1,6 +1,6 @@
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -14,15 +14,12 @@ from .telegram import send_telegram_message
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     start_scheduler()
     yield
-    # Shutdown
     shutdown_scheduler()
 
 app = FastAPI(title="Telegram Tracker Bot API", lifespan=lifespan)
 
-# CORS (por si el frontend se sirve desde otro origen durante el desarrollo)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -31,7 +28,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Modelos Pydantic para la API
+# Modelos Pydantic
 class URLCreate(BaseModel):
     name: str
     url: HttpUrl
@@ -59,7 +56,7 @@ class LogResponse(BaseModel):
     message: str
     timestamp: str
     status: str
-    
+
     class Config:
         from_attributes = True
 
@@ -72,13 +69,19 @@ class UserLogin(BaseModel):
     email: str
     password: str
 
+# Helper: obtener user_id del header (None si no hay sesión)
+def get_user_id(x_user_id: Optional[str] = Header(default=None)) -> Optional[int]:
+    if x_user_id and x_user_id.isdigit():
+        return int(x_user_id)
+    return None
+
 # ----- AUTH ENDPOINTS -----
 
 @app.post("/api/register")
 def register(user_in: UserRegister, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == user_in.email).first()
     if existing:
-        raise HTTPException(status_code=400, detail="El correo ya está registrado")
+        raise HTTPException(status_code=400, detail="El correo ya esta registrado")
     new_user = User(name=user_in.name, email=user_in.email)
     new_user.set_password(user_in.password)
     db.add(new_user)
@@ -90,28 +93,32 @@ def register(user_in: UserRegister, db: Session = Depends(get_db)):
 def login(user_in: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == user_in.email).first()
     if not user or not user.check_password(user_in.password):
-        raise HTTPException(status_code=401, detail="Correo o contraseña incorrectos")
+        raise HTTPException(status_code=401, detail="Correo o contrasena incorrectos")
     return {"id": user.id, "name": user.name, "email": user.email}
 
-# ----- ENDPOINTS -----
+# ----- URLS ENDPOINTS (filtradas por usuario) -----
 
 @app.get("/api/urls", response_model=List[URLResponse])
-def get_urls(db: Session = Depends(get_db)):
-    urls = db.query(TrackedURL).all()
-    # Formatear fecha
+def get_urls(user_id: Optional[int] = Depends(get_user_id), db: Session = Depends(get_db)):
+    # Si no hay sesión, devolver lista vacía
+    if user_id is None:
+        return []
+    urls = db.query(TrackedURL).filter(TrackedURL.user_id == user_id).all()
     result = []
     for u in urls:
-        u_dict = {
+        result.append({
             "id": u.id, "name": u.name, "url": u.url, "css_selector": u.css_selector,
             "last_value": u.last_value, "is_active": u.is_active, "error_state": u.error_state,
             "last_checked": u.last_checked.isoformat() if u.last_checked else None
-        }
-        result.append(u_dict)
+        })
     return result
 
 @app.post("/api/urls", response_model=URLResponse)
-def create_url(url_in: URLCreate, db: Session = Depends(get_db)):
+def create_url(url_in: URLCreate, user_id: Optional[int] = Depends(get_user_id), db: Session = Depends(get_db)):
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Debes iniciar sesion para agregar rastreadores")
     new_url = TrackedURL(
+        user_id=user_id,
         name=url_in.name,
         url=str(url_in.url),
         css_selector=url_in.css_selector
@@ -122,8 +129,11 @@ def create_url(url_in: URLCreate, db: Session = Depends(get_db)):
     return {**new_url.__dict__, "last_checked": None}
 
 @app.delete("/api/urls/{url_id}")
-def delete_url(url_id: int, db: Session = Depends(get_db)):
-    url_item = db.query(TrackedURL).filter(TrackedURL.id == url_id).first()
+def delete_url(url_id: int, user_id: Optional[int] = Depends(get_user_id), db: Session = Depends(get_db)):
+    query = db.query(TrackedURL).filter(TrackedURL.id == url_id)
+    if user_id is not None:
+        query = query.filter(TrackedURL.user_id == user_id)
+    url_item = query.first()
     if not url_item:
         raise HTTPException(status_code=404, detail="URL no encontrada")
     db.delete(url_item)
@@ -131,13 +141,18 @@ def delete_url(url_id: int, db: Session = Depends(get_db)):
     return {"message": "URL eliminada"}
 
 @app.post("/api/urls/{url_id}/toggle")
-def toggle_url(url_id: int, db: Session = Depends(get_db)):
-    url_item = db.query(TrackedURL).filter(TrackedURL.id == url_id).first()
+def toggle_url(url_id: int, user_id: Optional[int] = Depends(get_user_id), db: Session = Depends(get_db)):
+    query = db.query(TrackedURL).filter(TrackedURL.id == url_id)
+    if user_id is not None:
+        query = query.filter(TrackedURL.user_id == user_id)
+    url_item = query.first()
     if not url_item:
         raise HTTPException(status_code=404, detail="URL no encontrada")
     url_item.is_active = not url_item.is_active
     db.commit()
     return {"message": "Estado cambiado", "is_active": url_item.is_active}
+
+# ----- CONFIG -----
 
 @app.get("/api/config")
 def get_config(db: Session = Depends(get_db)):
@@ -156,19 +171,19 @@ def update_config(config_in: ConfigUpdate, db: Session = Depends(get_db)):
         config.telegram_token = config_in.telegram_token
         config.telegram_chat_id = config_in.telegram_chat_id
     db.commit()
-    return {"message": "Configuración guardada"}
+    return {"message": "Configuracion guardada"}
 
 @app.post("/api/test-telegram")
-def test_telegram(db: Session = Depends(get_db)):
+def test_telegram(user_id: Optional[int] = Depends(get_user_id), db: Session = Depends(get_db)):
     config = db.query(Config).first()
     if not config or not config.telegram_token or not config.telegram_chat_id:
-        raise HTTPException(status_code=400, detail="Configuración incompleta")
-    
+        raise HTTPException(status_code=400, detail="Configuracion incompleta")
     success = send_telegram_message(
-        config.telegram_token, 
-        config.telegram_chat_id, 
-        "✅ *Mensaje de prueba* desde Telegram Tracker Bot", 
-        db
+        config.telegram_token,
+        config.telegram_chat_id,
+        "✅ *Mensaje de prueba* desde Telegram Tracker Bot",
+        db,
+        user_id=user_id
     )
     if not success:
         raise HTTPException(status_code=500, detail="Error enviando mensaje")
@@ -176,13 +191,16 @@ def test_telegram(db: Session = Depends(get_db)):
 
 @app.post("/api/force-check")
 def force_check():
-    """Ejecuta el job del scheduler manualmente de forma síncrona/inmediata."""
     check_urls()
     return {"message": "Chequeo manual finalizado"}
 
+# ----- LOGS (filtrados por usuario) -----
+
 @app.get("/api/logs")
-def get_logs(db: Session = Depends(get_db)):
-    logs = db.query(Log).order_by(Log.timestamp.desc()).limit(50).all()
+def get_logs(user_id: Optional[int] = Depends(get_user_id), db: Session = Depends(get_db)):
+    if user_id is None:
+        return []
+    logs = db.query(Log).filter(Log.user_id == user_id).order_by(Log.timestamp.desc()).limit(50).all()
     result = []
     for log in logs:
         result.append({

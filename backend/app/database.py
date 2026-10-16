@@ -42,10 +42,11 @@ class User(Base):
         return self.password_hash == hashlib.sha256(password.encode()).hexdigest()
 
 class TrackedURL(Base):
-    """Almacena las URLs a monitorear"""
+    """Almacena las URLs a monitorear — aisladas por usuario"""
     __tablename__ = "tracked_urls"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=True)   # NULL = sin dueño (migración segura)
     name = Column(String, index=True)
     url = Column(String, nullable=False)
     css_selector = Column(String, nullable=False)
@@ -55,15 +56,16 @@ class TrackedURL(Base):
     error_state = Column(Boolean, default=False)
 
 class Log(Base):
-    """Historial de notificaciones enviadas"""
+    """Historial de notificaciones enviadas — aisladas por usuario"""
     __tablename__ = "logs"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=True)   # NULL = sin dueño (migración segura)
     message = Column(String, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
     status = Column(String, default="success") # 'success' o 'error'
 
-# Crear tablas
+# Crear tablas nuevas; las columnas nuevas se añaden via migración en migrate.py
 Base.metadata.create_all(bind=engine)
 
 # Dependencia para obtener la sesión de BD
