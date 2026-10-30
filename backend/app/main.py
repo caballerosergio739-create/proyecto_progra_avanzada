@@ -1,76 +1,37 @@
 import os
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException, Header
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from typing import List, Optional
+from flask import Flask, request, jsonify, send_from_directory, g
+from flask_cors import CORS
 
-from .database import get_db, TrackedURL, Config, Log, User
+from .database import SessionLocal, TrackedURL, Config, Log, User
 from .scheduler import start_scheduler, shutdown_scheduler, check_urls
 from .telegram import send_telegram_message
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    start_scheduler()
-    yield
-    shutdown_scheduler()
+# Rutas del Frontend (React en dist)
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "frontend")
+DIST_DIR = os.path.join(FRONTEND_DIR, "dist")
+SERVE_DIR = DIST_DIR if os.path.exists(DIST_DIR) else FRONTEND_DIR
 
-app = FastAPI(title="Telegram Tracker Bot API", lifespan=lifespan)
+app = Flask(__name__, static_folder=SERVE_DIR)
+CORS(app)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Iniciar planificador en segundo plano
+start_scheduler()
 
-# Modelos Pydantic
-class URLCreate(BaseModel):
-    name: str
-    url: str
-    css_selector: str
+# Helper para sesión de base de datos en Flask
+def get_db():
+    if 'db' not in g:
+        g.db = SessionLocal()
+    return g.db
 
-class URLResponse(BaseModel):
-    id: int
-    name: str
-    url: str
-    css_selector: str
-    last_value: Optional[str] = None
-    is_active: bool = True
-    last_checked: Optional[str] = None
-    error_state: bool = False
+@app.teardown_appcontext
+def teardown_db(exception=None):
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
 
-    class Config:
-        from_attributes = True
-
-class ConfigUpdate(BaseModel):
-    telegram_token: str
-    telegram_chat_id: str
-
-class LogResponse(BaseModel):
-    id: int
-    message: str
-    timestamp: str
-    status: str
-
-    class Config:
-        from_attributes = True
-
-class UserRegister(BaseModel):
-    name: str
-    email: str
-    password: str
-
-class UserLogin(BaseModel):
-    email: str
-    password: str
-
-# Helper: obtener user_id del header
-def get_user_id(x_user_id: Optional[str] = Header(default=None)) -> Optional[int]:
+# Helper: obtener user_id del header X-User-ID
+def get_user_id():
+    x_user_id = request.headers.get("X-User-ID")
     if not x_user_id:
         return None
     try:
@@ -81,36 +42,58 @@ def get_user_id(x_user_id: Optional[str] = Header(default=None)) -> Optional[int
         pass
     return None
 
-# ----- AUTH ENDPOINTS -----
+# ====================================================
+# AUTH ENDPOINTS
+# ====================================================
 
-@app.post("/api/register")
-def register(user_in: UserRegister, db: Session = Depends(get_db)):
-    existing = db.query(User).filter(User.email == user_in.email).first()
+@app.route("/api/register", methods=["POST"])
+def register():
+    db = get_db()
+    data = request.get_json() or {}
+    name = data.get("name", "").strip()
+    email = data.get("email", "").strip()
+    password = data.get("password", "")
+
+    if not name or not email or not password:
+        return jsonify({"detail": "Todos los campos son obligatorios"}), 400
+
+    existing = db.query(User).filter(User.email == email).first()
     if existing:
-        raise HTTPException(status_code=400, detail="El correo ya esta registrado")
-    new_user = User(name=user_in.name, email=user_in.email)
-    new_user.set_password(user_in.password)
+        return jsonify({"detail": "El correo ya esta registrado"}), 400
+
+    new_user = User(name=name, email=email)
+    new_user.set_password(password)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return {"id": new_user.id, "name": new_user.name, "email": new_user.email}
+    return jsonify({"id": new_user.id, "name": new_user.name, "email": new_user.email}), 200
 
-@app.post("/api/login")
-def login(user_in: UserLogin, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == user_in.email).first()
-    if not user or not user.check_password(user_in.password):
-        raise HTTPException(status_code=401, detail="Correo o contrasena incorrectos")
-    return {"id": user.id, "name": user.name, "email": user.email}
+@app.route("/api/login", methods=["POST"])
+def login():
+    db = get_db()
+    data = request.get_json() or {}
+    email = data.get("email", "").strip()
+    password = data.get("password", "")
 
-# ----- URLS ENDPOINTS (filtradas por usuario) -----
+    user = db.query(User).filter(User.email == email).first()
+    if not user or not user.check_password(password):
+        return jsonify({"detail": "Correo o contrasena incorrectos"}), 401
 
-@app.get("/api/urls", response_model=List[URLResponse])
-def get_urls(user_id: Optional[int] = Depends(get_user_id), db: Session = Depends(get_db)):
+    return jsonify({"id": user.id, "name": user.name, "email": user.email}), 200
+
+# ====================================================
+# URLS ENDPOINTS (Filtradas por usuario)
+# ====================================================
+
+@app.route("/api/urls", methods=["GET"])
+def get_urls():
+    db = get_db()
+    user_id = get_user_id()
     if user_id is not None:
         urls = db.query(TrackedURL).filter(TrackedURL.user_id == user_id).all()
     else:
         urls = db.query(TrackedURL).filter(TrackedURL.user_id == None).all()
-        
+
     result = []
     for u in urls:
         result.append({
@@ -123,27 +106,36 @@ def get_urls(user_id: Optional[int] = Depends(get_user_id), db: Session = Depend
             "error_state": u.error_state or False,
             "last_checked": u.last_checked.isoformat() if u.last_checked else None
         })
-    return result
+    return jsonify(result), 200
 
-@app.post("/api/urls", response_model=URLResponse)
-def create_url(url_in: URLCreate, user_id: Optional[int] = Depends(get_user_id), db: Session = Depends(get_db)):
-    url_str = url_in.url.strip()
+@app.route("/api/urls", methods=["POST"])
+def create_url():
+    db = get_db()
+    user_id = get_user_id()
+    data = request.get_json() or {}
+    name = data.get("name", "").strip()
+    url_str = data.get("url", "").strip()
+    css_selector = data.get("css_selector", "").strip()
+
+    if not name or not url_str or not css_selector:
+        return jsonify({"detail": "Todos los campos son obligatorios"}), 400
+
     if not url_str.startswith("http://") and not url_str.startswith("https://"):
         url_str = "https://" + url_str
 
     new_url = TrackedURL(
         user_id=user_id,
-        name=url_in.name.strip(),
+        name=name,
         url=url_str,
-        css_selector=url_in.css_selector.strip(),
+        css_selector=css_selector,
         is_active=True,
         error_state=False
     )
     db.add(new_url)
     db.commit()
     db.refresh(new_url)
-    
-    return {
+
+    return jsonify({
         "id": new_url.id,
         "name": new_url.name,
         "url": new_url.url,
@@ -152,52 +144,72 @@ def create_url(url_in: URLCreate, user_id: Optional[int] = Depends(get_user_id),
         "is_active": new_url.is_active,
         "last_checked": None,
         "error_state": False
-    }
+    }), 200
 
-@app.delete("/api/urls/{url_id}")
-def delete_url(url_id: int, user_id: Optional[int] = Depends(get_user_id), db: Session = Depends(get_db)):
+@app.route("/api/urls/<int:url_id>", methods=["DELETE"])
+def delete_url(url_id):
+    db = get_db()
+    user_id = get_user_id()
     query = db.query(TrackedURL).filter(TrackedURL.id == url_id)
     if user_id is not None:
         query = query.filter(TrackedURL.user_id == user_id)
     else:
         query = query.filter(TrackedURL.user_id == None)
-        
+
     url_item = query.first()
     if not url_item:
-        raise HTTPException(status_code=404, detail="URL no encontrada")
+        return jsonify({"detail": "URL no encontrada"}), 404
+
     db.delete(url_item)
     db.commit()
-    return {"message": "URL eliminada"}
+    return jsonify({"message": "URL eliminada"}), 200
 
-@app.post("/api/urls/{url_id}/toggle")
-def toggle_url(url_id: int, user_id: Optional[int] = Depends(get_user_id), db: Session = Depends(get_db)):
+@app.route("/api/urls/<int:url_id>/toggle", methods=["POST"])
+def toggle_url(url_id):
+    db = get_db()
+    user_id = get_user_id()
     query = db.query(TrackedURL).filter(TrackedURL.id == url_id)
     if user_id is not None:
         query = query.filter(TrackedURL.user_id == user_id)
     else:
         query = query.filter(TrackedURL.user_id == None)
-        
+
     url_item = query.first()
     if not url_item:
-        raise HTTPException(status_code=404, detail="URL no encontrada")
+        return jsonify({"detail": "URL no encontrada"}), 404
+
     url_item.is_active = not url_item.is_active
     db.commit()
-    return {"message": "Estado cambiado", "is_active": url_item.is_active}
+    return jsonify({"message": "Estado cambiado", "is_active": url_item.is_active}), 200
 
-# ----- CONFIG -----
+# ====================================================
+# CONFIG ENDPOINTS
+# ====================================================
 
-@app.get("/api/config")
-def get_config(user_id: Optional[int] = Depends(get_user_id), db: Session = Depends(get_db)):
+@app.route("/api/config", methods=["GET"])
+def get_config():
+    db = get_db()
+    user_id = get_user_id()
     if user_id is not None:
         config = db.query(Config).filter(Config.user_id == user_id).first()
     else:
         config = db.query(Config).filter(Config.user_id == None).first()
-    if not config:
-        return {"telegram_token": "", "telegram_chat_id": ""}
-    return {"telegram_token": config.telegram_token or "", "telegram_chat_id": config.telegram_chat_id or ""}
 
-@app.post("/api/config")
-def update_config(config_in: ConfigUpdate, user_id: Optional[int] = Depends(get_user_id), db: Session = Depends(get_db)):
+    if not config:
+        return jsonify({"telegram_token": "", "telegram_chat_id": ""}), 200
+    return jsonify({
+        "telegram_token": config.telegram_token or "",
+        "telegram_chat_id": config.telegram_chat_id or ""
+    }), 200
+
+@app.route("/api/config", methods=["POST"])
+def update_config():
+    db = get_db()
+    user_id = get_user_id()
+    data = request.get_json() or {}
+    token = data.get("telegram_token", "").strip()
+    chat_id = data.get("telegram_chat_id", "").strip()
+
     if user_id is not None:
         config = db.query(Config).filter(Config.user_id == user_id).first()
     else:
@@ -206,25 +218,28 @@ def update_config(config_in: ConfigUpdate, user_id: Optional[int] = Depends(get_
     if not config:
         config = Config(
             user_id=user_id,
-            telegram_token=config_in.telegram_token.strip(),
-            telegram_chat_id=config_in.telegram_chat_id.strip()
+            telegram_token=token,
+            telegram_chat_id=chat_id
         )
         db.add(config)
     else:
-        config.telegram_token = config_in.telegram_token.strip()
-        config.telegram_chat_id = config_in.telegram_chat_id.strip()
+        config.telegram_token = token
+        config.telegram_chat_id = chat_id
     db.commit()
-    return {"message": "Configuracion guardada"}
+    return jsonify({"message": "Configuracion guardada"}), 200
 
-@app.post("/api/test-telegram")
-def test_telegram(user_id: Optional[int] = Depends(get_user_id), db: Session = Depends(get_db)):
+@app.route("/api/test-telegram", methods=["POST"])
+def test_telegram():
+    db = get_db()
+    user_id = get_user_id()
     if user_id is not None:
         config = db.query(Config).filter(Config.user_id == user_id).first()
     else:
         config = db.query(Config).filter(Config.user_id == None).first()
 
     if not config or not config.telegram_token or not config.telegram_chat_id:
-        raise HTTPException(status_code=400, detail="Configuracion incompleta. Guarda el Token y Chat ID primero.")
+        return jsonify({"detail": "Configuracion incompleta. Guarda el Token y Chat ID primero."}), 400
+
     success = send_telegram_message(
         config.telegram_token,
         config.telegram_chat_id,
@@ -233,23 +248,27 @@ def test_telegram(user_id: Optional[int] = Depends(get_user_id), db: Session = D
         user_id=user_id
     )
     if not success:
-        raise HTTPException(status_code=500, detail="Error enviando mensaje")
-    return {"message": "Mensaje enviado exitosamente"}
+        return jsonify({"detail": "Error enviando mensaje"}), 500
+    return jsonify({"message": "Mensaje enviado exitosamente"}), 200
 
-@app.post("/api/force-check")
+@app.route("/api/force-check", methods=["POST"])
 def force_check():
     check_urls()
-    return {"message": "Chequeo manual finalizado"}
+    return jsonify({"message": "Chequeo manual finalizado"}), 200
 
-# ----- LOGS (filtrados por usuario) -----
+# ====================================================
+# LOGS ENDPOINTS
+# ====================================================
 
-@app.get("/api/logs")
-def get_logs(user_id: Optional[int] = Depends(get_user_id), db: Session = Depends(get_db)):
+@app.route("/api/logs", methods=["GET"])
+def get_logs():
+    db = get_db()
+    user_id = get_user_id()
     if user_id is not None:
         logs = db.query(Log).filter(Log.user_id == user_id).order_by(Log.timestamp.desc()).limit(50).all()
     else:
         logs = db.query(Log).filter(Log.user_id == None).order_by(Log.timestamp.desc()).limit(50).all()
-        
+
     result = []
     for log in logs:
         result.append({
@@ -258,33 +277,28 @@ def get_logs(user_id: Optional[int] = Depends(get_user_id), db: Session = Depend
             "timestamp": log.timestamp.isoformat(),
             "status": log.status
         })
-    return result
+    return jsonify(result), 200
 
-# ----- SERVIR EL FRONTEND (REACT / DIST) -----
-FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "frontend")
-DIST_DIR = os.path.join(FRONTEND_DIR, "dist")
-SERVE_DIR = DIST_DIR if os.path.exists(DIST_DIR) else FRONTEND_DIR
+# ====================================================
+# SERVIR EL FRONTEND (REACT / DIST)
+# ====================================================
 
-@app.get("/")
+@app.route("/")
+@app.route("/login")
+@app.route("/register")
 def serve_index():
     index_path = os.path.join(SERVE_DIR, "index.html")
     if os.path.exists(index_path):
-        return FileResponse(index_path)
-    return {"error": "Frontend no encontrado"}
+        return send_from_directory(SERVE_DIR, "index.html")
+    return jsonify({"error": "Frontend no encontrado"}), 404
 
-@app.get("/login")
-def serve_login():
-    index_path = os.path.join(SERVE_DIR, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    return {"error": "Frontend no encontrado"}
+@app.route("/<path:path>")
+def serve_static(path):
+    file_path = os.path.join(SERVE_DIR, path)
+    if os.path.exists(file_path) and os.path.isfile(file_path):
+        return send_from_directory(SERVE_DIR, path)
+    # Fallback para rutas cliente de React
+    return send_from_directory(SERVE_DIR, "index.html")
 
-@app.get("/register")
-def serve_register():
-    index_path = os.path.join(SERVE_DIR, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    return {"error": "Frontend no encontrado"}
-
-if os.path.exists(SERVE_DIR):
-    app.mount("/", StaticFiles(directory=SERVE_DIR), name="static")
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080, debug=True)

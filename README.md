@@ -4,7 +4,7 @@ Un bot de notificaciones para Telegram con un dashboard web minimalista diseñad
 
 ## 🚀 Tecnologías
 
-*   **Backend:** Python, FastAPI, SQLite, SQLAlchemy, APScheduler, BeautifulSoup4
+*   **Backend:** Python, Flask, Flask-CORS, SQLite, SQLAlchemy, APScheduler, BeautifulSoup4
 *   **Frontend:** React 18, Vite, Tailwind CSS, Phosphor Icons (Vibe-coding style)
 
 ## 📋 Requisitos Previos
@@ -37,9 +37,11 @@ Un bot de notificaciones para Telegram con un dashboard web minimalista diseñad
    pip install -r requirements.txt
    ```
 
-3. **Ejecutar el Servidor**
+3. **Ejecutar el Servidor (Flask)**
    ```bash
-   uvicorn app.main:app --port 8080 --reload
+   python run.py
+   # o alternativamente:
+   flask --app app.main:app run --port 8080 --reload
    ```
    El backend y el dashboard web estarán disponibles en `http://localhost:8080`.
 
