@@ -260,15 +260,31 @@ def get_logs(user_id: Optional[int] = Depends(get_user_id), db: Session = Depend
         })
     return result
 
-# ----- SERVIR EL FRONTEND -----
+# ----- SERVIR EL FRONTEND (REACT / DIST) -----
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "frontend")
+DIST_DIR = os.path.join(FRONTEND_DIR, "dist")
+SERVE_DIR = DIST_DIR if os.path.exists(DIST_DIR) else FRONTEND_DIR
 
 @app.get("/")
 def serve_index():
-    index_path = os.path.join(FRONTEND_DIR, "index.html")
+    index_path = os.path.join(SERVE_DIR, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
     return {"error": "Frontend no encontrado"}
 
-if os.path.exists(FRONTEND_DIR):
-    app.mount("/", StaticFiles(directory=FRONTEND_DIR), name="static")
+@app.get("/login")
+def serve_login():
+    index_path = os.path.join(SERVE_DIR, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"error": "Frontend no encontrado"}
+
+@app.get("/register")
+def serve_register():
+    index_path = os.path.join(SERVE_DIR, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"error": "Frontend no encontrado"}
+
+if os.path.exists(SERVE_DIR):
+    app.mount("/", StaticFiles(directory=SERVE_DIR), name="static")

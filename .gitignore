@@ -17,3 +17,8 @@ backend/tracker.db
 # IDEs
 .vscode/
 .idea/
+
+# Node
+node_modules/
+.npm
+

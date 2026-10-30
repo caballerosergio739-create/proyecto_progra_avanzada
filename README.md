@@ -5,7 +5,7 @@ Un bot de notificaciones para Telegram con un dashboard web minimalista diseñad
 ## 🚀 Tecnologías
 
 *   **Backend:** Python, FastAPI, SQLite, SQLAlchemy, APScheduler, BeautifulSoup4
-*   **Frontend:** HTML5, Tailwind CSS, Vanilla JavaScript (Vibe-coding style)
+*   **Frontend:** React 18, Vite, Tailwind CSS, Phosphor Icons (Vibe-coding style)
 
 ## 📋 Requisitos Previos
 
@@ -39,9 +39,16 @@ Un bot de notificaciones para Telegram con un dashboard web minimalista diseñad
 
 3. **Ejecutar el Servidor**
    ```bash
-   uvicorn app.main:app --reload
+   uvicorn app.main:app --port 8080 --reload
    ```
-   El backend y el dashboard web estarán disponibles en `http://localhost:8000`.
+   El backend y el dashboard web estarán disponibles en `http://localhost:8080`.
+
+4. **Desarrollo Frontend con React (Opcional si deseas modo dev)**
+   ```bash
+   cd ../frontend
+   npm install
+   npm run dev
+   ```
 
 ## 🤝 Flujo de Trabajo en Git (Colaboración)
 
